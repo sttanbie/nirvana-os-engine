@@ -200,6 +200,33 @@ function relSymlinkTarget(linkAbs: string, canonicalAbs: string): string {
   return path.relative(path.dirname(linkAbs), canonicalAbs);
 }
 
+/**
+ * Apply a project overlay (e.g. the Curated Project Standard — CPS) on top of
+ * the base skeleton. The overlay tree MIRRORS the target layout: every file in
+ * it is copied to the same relative path under <target>. Pre-existing files are
+ * NEVER overwritten (preservation > overwrite); `{{TOKENS}}` are filled from
+ * the tokens map (single evaluation per run).
+ */
+function applyOverlay(srcRoot: string, dstRoot: string, tokens: Record<string, string>) {
+  for (const name of fs.readdirSync(srcRoot)) {
+    const s = path.join(srcRoot, name);
+    const d = path.join(dstRoot, name);
+    if (fs.lstatSync(s).isDirectory()) {
+      applyOverlay(s, d, tokens);
+      continue;
+    }
+    if (fs.existsSync(d) || fs.lstatSync(d, { throwIfNoEntry: false } as any)) {
+      log.warn(`exists, kept: ${d}`);
+      continue;
+    }
+    ensureDir(path.dirname(d));
+    let content = fs.readFileSync(s, "utf8");
+    for (const [k, v] of Object.entries(tokens)) content = content.split(k).join(v);
+    fs.writeFileSync(d, content, "utf8");
+    log.ok(`wrote ${d}`);
+  }
+}
+
 function printHelp() {
   console.log(`init-project — scaffold a new Nirvana project
 
@@ -215,6 +242,9 @@ USAGE
   bun init-project.ts <target_dir> --copy             embed a snapshot of all skills (portable)
   bun init-project.ts <target_dir> --link             re-run skill linking (no-op without --with-skills)
   bun init-project.ts <target_dir> --force            overwrite existing files
+  bun init-project.ts <target_dir> --template=none    skip project overlays (e.g. CPS)
+  bun init-project.ts <target_dir> --template=<name>  apply a named overlay from
+                                                      _shared/templates/project-overlays/
   bun init-project.ts -h | --help                     this message
 
 CREATES (default — minimal)
@@ -226,6 +256,12 @@ CREATES (default — minimal)
   <target>/CLAUDE.md             same content — Claude Code reads this
   <target>/GEMINI.md             same content — Gemini-CLI reads this
   <target>/.nirvana/             squads/ businesses/ mind-clones/ outputs/
+
+  Project overlays (default: curated-project-standard — CPS v1.3) additionally
+  create the Local Brain: docs/HANDOFF.md, PROMPT-CONTINUAR-SERVICO.md,
+  knowledge/raw/ + knowledge/wiki/ (raw/wiki/log pattern), .cps.yaml discovery
+  marker, docs/stories/, docs/project-conventions.md, tests/ and output/.
+  Pre-existing files are never overwritten; pass --template=none to skip.
 
   Note: by default the project does NOT create .agents/skills/ or per-agent
   symlinks. Every modern agent runtime (Gemini-CLI, Cursor, Codex, OpenCode,
@@ -539,6 +575,29 @@ async function main() {
       orchestrationMode: orchestrators as "always" | "on-demand",
     });
     log.ok(`project manifest: ${path.join(target, ".nirvana", "project.yaml")} (${project.project_id})`);
+  }
+
+  // Project overlays (e.g. Curated Project Standard — CPS v1.3): Local Brain
+  // raw/wiki, handoff, continue-prompt, discovery marker. Applied by default
+  // when the overlay ships with the install; --template=<name> picks another,
+  // --template=none skips. Never overwrites — re-running is a no-op.
+  const overlayArg = (flags["template"] as string) || null;
+  const overlayName = overlayArg === "none" ? null : (overlayArg || "curated-project-standard");
+  const overlayRoot = overlayName
+    ? path.join(SKILLS_ROOT, "_shared", "templates", "project-overlays", overlayName)
+    : null;
+  if (!linkOnly && overlayName) {
+    if (fs.existsSync(overlayRoot as string)) {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      applyOverlay(overlayRoot as string, target, {
+        "{{PROJECT_NAME}}": path.basename(target),
+        "{{DATE}}": today,
+        "{{AUTHOR}}": process.env.USERNAME || process.env.USER || "operator",
+      });
+    } else if (overlayArg) {
+      log.warn(`overlay not found: ${overlayRoot} — skipping`);
+    }
   }
 
   // Per-agent symlinks (or copies) — only when withSkills is on.

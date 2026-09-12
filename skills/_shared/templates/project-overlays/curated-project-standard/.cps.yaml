@@ -1,0 +1,22 @@
+schema_version: cps-project/v1
+cps_version: 1.3.0
+project_id: {{PROJECT_NAME}}
+privacy_default: local_only
+paths:
+  readme: README.md
+  agent_context: AGENTS.md
+  handoff: docs/HANDOFF.md
+  continue_prompt: PROMPT-CONTINUAR-SERVICO.md
+  raw: knowledge/raw
+  wiki: knowledge/wiki
+  wiki_index: knowledge/wiki/index.md
+  wiki_log: knowledge/wiki/log.md
+features:
+  local_brain: true
+  global_export: explicit
+  graph_view: optional
+  runtime_required: false
+adapters:
+  canonical: AGENTS.md
+  aliases:
+    claude: CLAUDE.md
