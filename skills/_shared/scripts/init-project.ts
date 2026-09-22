@@ -257,11 +257,16 @@ CREATES (default — minimal)
   <target>/GEMINI.md             same content — Gemini-CLI reads this
   <target>/.nirvana/             squads/ businesses/ mind-clones/ outputs/
 
-  Project overlays (default: curated-project-standard — CPS v1.3) additionally
+  Project overlays (default: curated-project-standard — CPS v1.5) additionally
   create the Local Brain: docs/HANDOFF.md, PROMPT-CONTINUAR-SERVICO.md,
-  knowledge/raw/ + knowledge/wiki/ (raw/wiki/log pattern), .cps.yaml discovery
-  marker, docs/stories/, docs/project-conventions.md, tests/ and output/.
+  knowledge/raw/ (capture layer), .cps.yaml discovery marker, docs/stories/,
+  docs/project-conventions.md, tests/ and output/.
   Pre-existing files are never overwritten; pass --template=none to skip.
+
+  knowledge/wiki/ is NOT created: since CPS v1.5 it is Tier 2 extended (opt-in).
+  Audit 2026-09-22 found it stays empty in infra/ops projects while the projects
+  that do compile external knowledge build it on their own. Create it when the
+  project actually curates sources.
 
   Note: by default the project does NOT create .agents/skills/ or per-agent
   symlinks. Every modern agent runtime (Gemini-CLI, Cursor, Codex, OpenCode,
@@ -577,8 +582,9 @@ async function main() {
     log.ok(`project manifest: ${path.join(target, ".nirvana", "project.yaml")} (${project.project_id})`);
   }
 
-  // Project overlays (e.g. Curated Project Standard — CPS v1.3): Local Brain
-  // raw/wiki, handoff, continue-prompt, discovery marker. Applied by default
+  // Project overlays (e.g. Curated Project Standard — CPS v1.5): Local Brain
+  // raw/ capture, handoff, continue-prompt, discovery marker. wiki/ is Tier 2
+  // extended since v1.5 and is not scaffolded here. Applied by default
   // when the overlay ships with the install; --template=<name> picks another,
   // --template=none skips. Never overwrites — re-running is a no-op.
   const overlayArg = (flags["template"] as string) || null;
